@@ -463,6 +463,102 @@
       }
     }
 
+
+    .sound-toggle {
+      position: absolute;
+      z-index: 50;
+      top: max(22px, env(safe-area-inset-top));
+      right: max(22px, env(safe-area-inset-right));
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      opacity: 0;
+      pointer-events: none;
+      color: rgba(255,249,235,.75);
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,216,76,.18);
+      border-radius: 50%;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: opacity .7s ease, background .3s ease, color .3s ease;
+    }
+
+    .experience.started .sound-toggle { opacity: 1; pointer-events: auto; }
+    .sound-toggle:hover { background: rgba(255,216,76,.1); color: var(--gold-soft); }
+    .sound-toggle.muted { color: rgba(255,249,235,.3); }
+    .sound-toggle.muted::after {
+      content: "";
+      position: absolute;
+      width: 19px;
+      height: 1px;
+      rotate: -42deg;
+      background: currentColor;
+    }
+
+    .heart-field { transition: filter .4s ease; }
+    .experience.complete .heart-field {
+      pointer-events: auto;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .heart-field.celebrate { animation: heartTap .9s var(--ease) !important; }
+
+    .secret-line {
+      max-height: 0;
+      margin: 0;
+      overflow: hidden;
+      opacity: 0;
+      color: var(--gold-soft);
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: clamp(14px, 3.8vw, 19px);
+      font-style: italic;
+      transition: opacity .9s ease, max-height .9s var(--ease), margin .9s var(--ease);
+    }
+    .secret-line.visible { max-height: 48px; margin-top: 13px; opacity: 1; }
+
+    .signature {
+      margin: 13px 0 0;
+      color: rgba(255,249,235,.48);
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    .replay {
+      margin-top: 14px;
+      padding: 7px 0;
+      color: rgba(255,249,235,.44);
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid rgba(255,216,76,.2);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: color .3s ease, border-color .3s ease;
+    }
+    .replay:hover { color: var(--gold-soft); border-color: rgba(255,216,76,.55); }
+
+    .falling.burst {
+      top: var(--origin-y);
+      left: var(--origin-x);
+      opacity: 1;
+      animation: burstPetal var(--duration) var(--ease) forwards;
+    }
+
+    @keyframes heartTap {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 20px 30px rgba(0,0,0,.22)); }
+      42% { transform: scale(1.055); filter: drop-shadow(0 0 28px rgba(255,201,47,.3)); }
+    }
+
+    @keyframes burstPetal {
+      0% { opacity: 0; transform: translate3d(0,0,0) rotate(0); }
+      12% { opacity: .95; }
+      100% { opacity: 0; transform: translate3d(var(--burst-x), var(--burst-y), 0) rotate(var(--spin)); }
+    }
+
     @media (max-height: 690px) {
       .heart-field { top: 40%; width: min(69vw, 360px); }
       .message { bottom: 3%; }
@@ -509,7 +605,12 @@
       <p class="message__eyebrow">21 de septiembre · Flores Amarillas</p>
       <h1>Hoy quizás no llegué con<br><em>flores amarillas...</em></h1>
       <p class="message__note" id="typedNote"></p>
+      <p class="secret-line" id="secretLine">Y volvería a elegirte siempre.</p>
+      <p class="signature">Con amor, Nico</p>
+      <button class="replay" id="replay" type="button">Volver a verlo</button>
     </section>
+
+    <button class="sound-toggle" id="soundToggle" type="button" aria-label="Silenciar música" title="Silenciar música">♪</button>
   </main>
 
   <script>
@@ -517,6 +618,9 @@
     const trigger = document.querySelector('#tapFlower');
     const heartField = document.querySelector('#heartField');
     const typedNote = document.querySelector('#typedNote');
+    const secretLine = document.querySelector('#secretLine');
+    const replay = document.querySelector('#replay');
+    const soundToggle = document.querySelector('#soundToggle');
     const note = `pero no quería que este día pasara sin regalarte algo.
 Así que decidí plantar algunas para vos...
 aunque estas duren un poquito más. 💛
@@ -524,6 +628,12 @@ Feliz día de las flores amarillas, mi amor.
 Te amo ❤️`;
     let started = false;
     let petalTimer;
+    let audioContext;
+    let masterGain;
+    let musicTimer;
+    let musicOn = false;
+    let noteIndex = 0;
+    const melody = [261.63, 329.63, 392.00, 329.63, 293.66, 349.23, 440.00, 392.00];
 
     // Rellena la ecuación de un corazón con una distribución orgánica y estable.
     function insideHeart(x, y) {
@@ -591,11 +701,93 @@ Te amo ❤️`;
       petal.addEventListener('animationend', () => petal.remove());
     }
 
+
+    function playAmbientNote() {
+      if (!audioContext || !musicOn) return;
+      const now = audioContext.currentTime;
+      const frequency = melody[noteIndex++ % melody.length];
+      const oscillator = audioContext.createOscillator();
+      const overtone = audioContext.createOscillator();
+      const noteGain = audioContext.createGain();
+      oscillator.type = 'sine';
+      overtone.type = 'triangle';
+      oscillator.frequency.value = frequency;
+      overtone.frequency.value = frequency * 2;
+      noteGain.gain.setValueAtTime(0, now);
+      noteGain.gain.linearRampToValueAtTime(.16, now + .35);
+      noteGain.gain.exponentialRampToValueAtTime(.001, now + 2.8);
+      oscillator.connect(noteGain);
+      overtone.connect(noteGain);
+      noteGain.connect(masterGain);
+      oscillator.start(now);
+      overtone.start(now);
+      oscillator.stop(now + 2.9);
+      overtone.stop(now + 2.9);
+    }
+
+    function startMusic() {
+      if (!audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          soundToggle.hidden = true;
+          return;
+        }
+        audioContext = new AudioContextClass();
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = .055;
+        masterGain.connect(audioContext.destination);
+      }
+      audioContext.resume();
+      musicOn = true;
+      soundToggle.classList.remove('muted');
+      soundToggle.setAttribute('aria-label', 'Silenciar música');
+      soundToggle.title = 'Silenciar música';
+      playAmbientNote();
+      window.clearInterval(musicTimer);
+      musicTimer = window.setInterval(playAmbientNote, 1700);
+    }
+
+    function toggleMusic() {
+      if (!audioContext || !musicOn) {
+        startMusic();
+        return;
+      }
+      musicOn = false;
+      window.clearInterval(musicTimer);
+      masterGain.gain.setTargetAtTime(0, audioContext.currentTime, .18);
+      soundToggle.classList.add('muted');
+      soundToggle.setAttribute('aria-label', 'Activar música');
+      soundToggle.title = 'Activar música';
+    }
+
+    function burstFromHeart() {
+      if (!experience.classList.contains('complete')) return;
+      heartField.classList.remove('celebrate');
+      void heartField.offsetWidth;
+      heartField.classList.add('celebrate');
+      secretLine.classList.add('visible');
+      const rect = heartField.getBoundingClientRect();
+      for (let i = 0; i < 18; i++) {
+        const petal = document.createElement('i');
+        petal.className = 'falling burst';
+        petal.style.setProperty('--origin-x', `${rect.left + rect.width * (.24 + Math.random() * .52)}px`);
+        petal.style.setProperty('--origin-y', `${rect.top + rect.height * (.28 + Math.random() * .5)}px`);
+        petal.style.setProperty('--burst-x', `${-105 + Math.random() * 210}px`);
+        petal.style.setProperty('--burst-y', `${90 + Math.random() * 190}px`);
+        petal.style.setProperty('--spin', `${220 + Math.random() * 520}deg`);
+        petal.style.setProperty('--duration', `${2.2 + Math.random() * 1.3}s`);
+        experience.appendChild(petal);
+        petal.addEventListener('animationend', () => petal.remove());
+      }
+      window.setTimeout(() => heartField.classList.remove('celebrate'), 950);
+    }
+
     function begin() {
       if (started) return;
       started = true;
       trigger.disabled = true;
       experience.classList.add('started');
+      startMusic();
 
       window.setTimeout(() => experience.classList.add('planted'), 760);
       window.setTimeout(() => experience.classList.add('growing'), 1480);
@@ -610,6 +802,12 @@ Te amo ❤️`;
 
     buildHeart();
     trigger.addEventListener('click', begin, { once: true });
+    soundToggle.addEventListener('click', toggleMusic);
+    heartField.addEventListener('click', burstFromHeart);
+    heartField.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') burstFromHeart();
+    });
+    replay.addEventListener('click', () => window.location.reload());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && petalTimer) window.clearInterval(petalTimer);
       if (!document.hidden && experience.classList.contains('complete')) petalTimer = window.setInterval(releasePetal, 1250);
