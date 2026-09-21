@@ -320,6 +320,7 @@
       font-size: clamp(12px, 3.2vw, 15px);
       line-height: 1.55;
       font-weight: 300;
+      white-space: pre-line;
     }
 
     .falling {
@@ -404,7 +405,7 @@
 
     <section class="message" id="message">
       <p class="message__eyebrow">21 de septiembre · Flores Amarillas</p>
-      <h1>Para vos, que hacés florecer<br><em>todo lo lindo en mí.</em></h1>
+      <h1>Hoy quizás no llegué con<br><em>flores amarillas...</em></h1>
       <p class="message__note" id="typedNote"></p>
     </section>
   </main>
@@ -414,7 +415,15 @@
     const trigger = document.querySelector('#tapFlower');
     const heartField = document.querySelector('#heartField');
     const typedNote = document.querySelector('#typedNote');
-    const note = 'Hoy no quería regalarte solamente flores, sino recordarte cuánto más linda es mi vida desde que estás en ella.';
+    const note = `pero no quería que este día pasara sin regalarte algo.
+
+Así que decidí plantar algunas para vos...
+
+aunque estas duren un poquito más. 💛
+
+Feliz día de las flores amarillas, mi amor.
+
+Te amo ❤️`;
     let started = false;
     let petalTimer;
 
@@ -464,9 +473,10 @@
 
     function typeMessage() {
       let index = 0;
+      const characters = Array.from(note);
       const tick = () => {
-        typedNote.textContent = note.slice(0, index++);
-        if (index <= note.length) window.setTimeout(tick, 28);
+        typedNote.textContent = characters.slice(0, index++).join('');
+        if (index <= characters.length) window.setTimeout(tick, 28);
       };
       tick();
     }
