@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#17120d" />
   <meta name="description" content="Una pequeña historia hecha con flores amarillas." />
-  <title>Flores amarillas para vos</title>
+  <title>Un regalo para vos</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,500;1,500&display=swap');
 
@@ -336,13 +336,21 @@
     }
 
     .experience.started .intro-copy,
-    .experience.started .tap-label { opacity: 0; transform: translateY(8px); }
+    .experience.started .tap-label {
+      opacity: 0;
+      visibility: hidden;
+      animation: none;
+      transform: translateY(8px);
+      pointer-events: none;
+    }
     .experience.started .tap-flower { top: 86%; scale: .55; animation: plantDrop 1.25s var(--ease) both; }
     .experience.planted .earth { opacity: 1; scale: 1; }
     .experience.growing .tap-flower { opacity: 0; }
     .experience.growing .growing-stem { animation: growStem 1.8s var(--ease) forwards; }
     .experience.growing .leaf { animation: growLeaf .7s var(--ease) forwards; animation-delay: var(--delay); }
     .experience.blooming .glow { opacity: 1; scale: 1.35; }
+    .experience.blooming .plant,
+    .experience.blooming .earth { opacity: 0; transition: opacity 1.2s ease; }
     .experience.blooming .mini-flower { animation: bloom .72s var(--ease) forwards; animation-delay: var(--delay); }
     .experience.complete .heart-field { animation: heartBreath 4.8s ease-in-out infinite; }
     .experience.complete .message { opacity: 1; translate: -50% 0; }
@@ -361,6 +369,88 @@
     }
     @keyframes grain { 0% { transform: translate(0,0); } 25% { transform: translate(2%,-1%); } 50% { transform: translate(-1%,2%); } 75% { transform: translate(1%,1%); } }
 
+
+    /* Composición final: mensaje a la izquierda y corazón protagonista a la derecha. */
+    .mini-flower {
+      --size: clamp(13px, 4.5vw, 22px);
+      translate: -50% -50%;
+    }
+
+    .plant,
+    .earth { transition: opacity 1.2s ease; }
+
+    .experience.complete .tap-flower,
+    .experience.complete .tap-label {
+      display: none;
+    }
+
+    .message__note {
+      margin-top: 12px;
+      line-height: 1.48;
+    }
+
+    @media (min-width: 760px) {
+      .heart-field {
+        left: 71%;
+        top: 47%;
+        width: min(45vw, 480px);
+      }
+
+      .plant,
+      .earth {
+        left: 71%;
+      }
+
+      .message {
+        left: clamp(38px, 7vw, 110px);
+        bottom: auto;
+        top: 50%;
+        width: min(42vw, 520px);
+        translate: 0 calc(-50% + 18px);
+        text-align: left;
+      }
+
+      .message__note {
+        max-width: 460px;
+        margin-left: 0;
+        margin-right: 0;
+      }
+
+      .experience.complete .message {
+        translate: 0 -50%;
+      }
+    }
+
+    @media (max-width: 759px) {
+      .heart-field {
+        top: 33%;
+        width: min(88vw, 410px);
+      }
+
+      .message {
+        left: 7%;
+        bottom: max(4%, env(safe-area-inset-bottom));
+        width: 86%;
+        translate: 0 18px;
+        text-align: left;
+      }
+
+      .message h1 {
+        font-size: clamp(23px, 7vw, 34px);
+      }
+
+      .message__note {
+        max-width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+        font-size: clamp(12px, 3.5vw, 15px);
+      }
+
+      .experience.complete .message {
+        translate: 0 0;
+      }
+    }
+
     @media (max-height: 690px) {
       .heart-field { top: 40%; width: min(69vw, 360px); }
       .message { bottom: 3%; }
@@ -375,7 +465,7 @@
 <body>
   <main class="experience" id="experience" aria-live="polite">
     <div class="glow" aria-hidden="true"></div>
-    <p class="intro-copy">Una pequeña historia para vos</p>
+    <p class="intro-copy">Un regalo para vos</p>
 
     <section class="stage" aria-label="Una flor amarilla interactiva">
       <button class="tap-flower" id="tapFlower" type="button" aria-label="Tocá la flor para comenzar">
@@ -416,13 +506,9 @@
     const heartField = document.querySelector('#heartField');
     const typedNote = document.querySelector('#typedNote');
     const note = `pero no quería que este día pasara sin regalarte algo.
-
 Así que decidí plantar algunas para vos...
-
 aunque estas duren un poquito más. 💛
-
 Feliz día de las flores amarillas, mi amor.
-
 Te amo ❤️`;
     let started = false;
     let petalTimer;
@@ -442,8 +528,8 @@ Te amo ❤️`;
     function buildHeart() {
       const points = [];
       const candidates = [];
-      for (let y = -1.05; y <= 1.05; y += .095) {
-        for (let x = -1.1; x <= 1.1; x += .095) {
+      for (let y = -1.05; y <= 1.05; y += .072) {
+        for (let x = -1.1; x <= 1.1; x += .072) {
           if (!insideHeart(x, y)) continue;
           const seed = candidates.length + 3;
           candidates.push({
@@ -457,7 +543,7 @@ Te amo ❤️`;
       // El espaciado evita una masa uniforme: se distinguen flores individuales.
       candidates.sort((a, b) => a.rank - b.rank);
       candidates.forEach(point => {
-        if (points.every(p => Math.hypot(p.x - point.x, p.y - point.y) > .145)) points.push(point);
+        if (points.every(p => Math.hypot(p.x - point.x, p.y - point.y) > .112)) points.push(point);
       });
 
       points.sort((a, b) => b.y - a.y).forEach((point, index) => {
