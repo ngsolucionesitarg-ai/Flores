@@ -612,7 +612,7 @@
       <button class="replay" id="replay" type="button">Volver a verlo</button>
     </section>
 
-    <audio id="backgroundMusic" preload="auto" loop playsinline><source src="./assets/flores-amarillas-instrumental.mp3?v=20260921-2" type="audio/mpeg"></audio>
+    <audio id="backgroundMusic" preload="auto" playsinline></audio>
     <button class="sound-toggle" id="soundToggle" type="button" aria-label="Silenciar música" title="Silenciar música">♪</button>
   </main>
 
@@ -633,6 +633,13 @@ Te amo ❤️`;
     let started = false;
     let petalTimer;
     let musicOn = false;
+    let activeMusicSource = 0;
+    const MUSIC_FRAGMENT_START = 0;
+    const MUSIC_FRAGMENT_END = 60;
+    const MUSIC_SOURCES = [
+      'https://raw.githubusercontent.com/ngsolucionesitarg-ai/Flores/main/assets/flores-amarillas-instrumental.mp3',
+      './assets/flores-amarillas-instrumental.mp3?v=20260921-3'
+    ];
 
     // Rellena la ecuación de un corazón con una distribución orgánica y estable.
     function insideHeart(x, y) {
@@ -701,39 +708,84 @@ Te amo ❤️`;
     }
 
 
-    function setSoundState(isPlaying) {
+    function setSoundState(isPlaying, loading = false) {
       musicOn = isPlaying;
-      soundToggle.classList.toggle('muted', !isPlaying);
-      const label = isPlaying ? 'Silenciar música' : 'Activar música';
+      soundToggle.classList.toggle('muted', !isPlaying && !loading);
+      const label = loading
+        ? 'Cargando música'
+        : (isPlaying ? 'Silenciar música' : 'Activar música');
       soundToggle.setAttribute('aria-label', label);
       soundToggle.title = label;
-      soundToggle.textContent = isPlaying ? '♪' : '♫';
+      soundToggle.textContent = loading ? '…' : (isPlaying ? '♪' : '♫');
+    }
+
+    function setAudioSource(index) {
+      activeMusicSource = index;
+      backgroundMusic.pause();
+      backgroundMusic.src = MUSIC_SOURCES[index];
+      backgroundMusic.load();
+    }
+
+    async function playCurrentSource({ restart = false } = {}) {
+      backgroundMusic.muted = false;
+      backgroundMusic.volume = .75;
+      if (restart || !Number.isFinite(backgroundMusic.currentTime) || backgroundMusic.currentTime >= MUSIC_FRAGMENT_END) {
+        try { backgroundMusic.currentTime = MUSIC_FRAGMENT_START; } catch (_) {}
+      }
+
+      const result = backgroundMusic.play();
+      if (result) await result;
+      return !backgroundMusic.paused;
     }
 
     async function startMusic({ restart = false } = {}) {
-      try {
-        backgroundMusic.muted = false;
-        backgroundMusic.volume = .62;
-        if (restart || backgroundMusic.ended) backgroundMusic.currentTime = 0;
+      setSoundState(false, true);
 
-        // play() se ejecuta directamente desde el gesto del usuario.
-        const playPromise = backgroundMusic.play();
-        if (playPromise) await playPromise;
+      // Primer intento: fuente directa del repositorio. Si falla, usa la copia de GitHub Pages.
+      for (let attempt = 0; attempt < MUSIC_SOURCES.length; attempt++) {
+        const index = (activeMusicSource + attempt) % MUSIC_SOURCES.length;
+        try {
+          if (!backgroundMusic.src || index !== activeMusicSource) {
+            setAudioSource(index);
+          } else if (!backgroundMusic.getAttribute('src')) {
+            setAudioSource(index);
+          }
 
-        setSoundState(!backgroundMusic.paused);
-      } catch (error) {
-        console.warn('No se pudo reproducir la música:', error);
-        setSoundState(false);
+          const playing = await playCurrentSource({ restart });
+          if (playing) {
+            activeMusicSource = index;
+            setSoundState(true);
+            return true;
+          }
+        } catch (error) {
+          console.warn('Falló la fuente de música', MUSIC_SOURCES[index], error);
+          if (attempt < MUSIC_SOURCES.length - 1) setAudioSource((index + 1) % MUSIC_SOURCES.length);
+        }
       }
+
+      setSoundState(false);
+      return false;
     }
 
     function toggleMusic(event) {
       event?.stopPropagation();
+
       if (backgroundMusic.paused) {
-        startMusic({ restart: true });
+        startMusic({ restart: backgroundMusic.currentTime >= MUSIC_FRAGMENT_END });
       } else {
         backgroundMusic.pause();
         setSoundState(false);
+      }
+    }
+
+    function keepInsideFragment() {
+      if (!musicOn) return;
+      if (backgroundMusic.currentTime >= MUSIC_FRAGMENT_END) {
+        backgroundMusic.currentTime = MUSIC_FRAGMENT_START;
+        backgroundMusic.play().catch(error => {
+          console.warn('No se pudo reiniciar el fragmento musical:', error);
+          setSoundState(false);
+        });
       }
     }
 
@@ -777,18 +829,18 @@ Te amo ❤️`;
       }, 7350);
     }
 
-    backgroundMusic.volume = .62;
+    backgroundMusic.volume = .75;
     backgroundMusic.muted = false;
-    backgroundMusic.load();
+    setAudioSource(0);
     setSoundState(false);
 
-    backgroundMusic.addEventListener('play', () => setSoundState(true));
+    backgroundMusic.addEventListener('playing', () => setSoundState(true));
     backgroundMusic.addEventListener('pause', () => {
       if (!backgroundMusic.ended) setSoundState(false);
     });
+    backgroundMusic.addEventListener('timeupdate', keepInsideFragment);
     backgroundMusic.addEventListener('error', () => {
-      console.warn('Error cargando el archivo de audio.', backgroundMusic.error);
-      setSoundState(false);
+      console.warn('Error cargando la fuente de audio activa.', backgroundMusic.error);
     });
 
     buildHeart();
@@ -811,7 +863,7 @@ Te amo ❤️`;
       typedNote.textContent = '';
 
       backgroundMusic.pause();
-      backgroundMusic.currentTime = 0;
+      try { backgroundMusic.currentTime = MUSIC_FRAGMENT_START; } catch (_) {}
       backgroundMusic.muted = false;
       setSoundState(false);
 
