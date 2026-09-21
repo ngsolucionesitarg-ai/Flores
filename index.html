@@ -598,7 +598,7 @@
         <i class="leaf" style="--y:43%; --r:19deg; --delay:1.05s"></i>
         <i class="leaf left" style="--y:63%; --r:-15deg; --delay:1.35s"></i>
       </div>
-      <div class="heart-field" id="heartField" aria-hidden="true"></div>
+      <div class="heart-field" id="heartField" role="button" tabindex="0" aria-label="Tocá el corazón para descubrir un mensaje"></div>
     </section>
 
     <section class="message" id="message">
@@ -738,6 +738,7 @@ Te amo ❤️`;
         masterGain.connect(audioContext.destination);
       }
       audioContext.resume();
+      masterGain.gain.setTargetAtTime(.055, audioContext.currentTime, .18);
       musicOn = true;
       soundToggle.classList.remove('muted');
       soundToggle.setAttribute('aria-label', 'Silenciar música');
