@@ -610,6 +610,7 @@
       <button class="replay" id="replay" type="button">Volver a verlo</button>
     </section>
 
+    <audio id="backgroundMusic" src="assets/flores-amarillas-instrumental.mp3" preload="auto" loop></audio>
     <button class="sound-toggle" id="soundToggle" type="button" aria-label="Silenciar música" title="Silenciar música">♪</button>
   </main>
 
@@ -621,6 +622,7 @@
     const secretLine = document.querySelector('#secretLine');
     const replay = document.querySelector('#replay');
     const soundToggle = document.querySelector('#soundToggle');
+    const backgroundMusic = document.querySelector('#backgroundMusic');
     const note = `pero no quería que este día pasara sin regalarte algo.
 Así que decidí plantar algunas para vos...
 aunque estas duren un poquito más. 💛
@@ -628,12 +630,7 @@ Feliz día de las flores amarillas, mi amor.
 Te amo ❤️`;
     let started = false;
     let petalTimer;
-    let audioContext;
-    let masterGain;
-    let musicTimer;
     let musicOn = false;
-    let noteIndex = 0;
-    const melody = [261.63, 329.63, 392.00, 329.63, 293.66, 349.23, 440.00, 392.00];
 
     // Rellena la ecuación de un corazón con una distribución orgánica y estable.
     function insideHeart(x, y) {
@@ -702,60 +699,29 @@ Te amo ❤️`;
     }
 
 
-    function playAmbientNote() {
-      if (!audioContext || !musicOn) return;
-      const now = audioContext.currentTime;
-      const frequency = melody[noteIndex++ % melody.length];
-      const oscillator = audioContext.createOscillator();
-      const overtone = audioContext.createOscillator();
-      const noteGain = audioContext.createGain();
-      oscillator.type = 'sine';
-      overtone.type = 'triangle';
-      oscillator.frequency.value = frequency;
-      overtone.frequency.value = frequency * 2;
-      noteGain.gain.setValueAtTime(0, now);
-      noteGain.gain.linearRampToValueAtTime(.16, now + .35);
-      noteGain.gain.exponentialRampToValueAtTime(.001, now + 2.8);
-      oscillator.connect(noteGain);
-      overtone.connect(noteGain);
-      noteGain.connect(masterGain);
-      oscillator.start(now);
-      overtone.start(now);
-      oscillator.stop(now + 2.9);
-      overtone.stop(now + 2.9);
-    }
-
-    function startMusic() {
-      if (!audioContext) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) {
-          soundToggle.hidden = true;
-          return;
-        }
-        audioContext = new AudioContextClass();
-        masterGain = audioContext.createGain();
-        masterGain.gain.value = .055;
-        masterGain.connect(audioContext.destination);
+    async function startMusic() {
+      backgroundMusic.volume = .28;
+      try {
+        await backgroundMusic.play();
+        musicOn = true;
+        soundToggle.classList.remove('muted');
+        soundToggle.setAttribute('aria-label', 'Silenciar música');
+        soundToggle.title = 'Silenciar música';
+      } catch (error) {
+        musicOn = false;
+        soundToggle.classList.add('muted');
+        soundToggle.setAttribute('aria-label', 'Activar música');
+        soundToggle.title = 'Activar música';
       }
-      audioContext.resume();
-      masterGain.gain.setTargetAtTime(.055, audioContext.currentTime, .18);
-      musicOn = true;
-      soundToggle.classList.remove('muted');
-      soundToggle.setAttribute('aria-label', 'Silenciar música');
-      soundToggle.title = 'Silenciar música';
-      playAmbientNote();
-      window.clearInterval(musicTimer);
-      musicTimer = window.setInterval(playAmbientNote, 1700);
     }
 
     function toggleMusic() {
-      if (!audioContext || !musicOn) {
+      if (backgroundMusic.paused) {
         startMusic();
         return;
       }
+      backgroundMusic.pause();
       musicOn = false;
-      window.clearInterval(musicTimer);
-      masterGain.gain.setTargetAtTime(0, audioContext.currentTime, .18);
       soundToggle.classList.add('muted');
       soundToggle.setAttribute('aria-label', 'Activar música');
       soundToggle.title = 'Activar música';
