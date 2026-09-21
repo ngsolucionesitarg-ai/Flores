@@ -353,7 +353,7 @@
     .experience.blooming .earth { opacity: 1; transition: opacity 1.2s ease; }
     .experience.blooming .mini-flower { animation: bloom .72s var(--ease) forwards; animation-delay: var(--delay); }
     .experience.complete .heart-field { animation: heartBreath 4.8s ease-in-out infinite; }
-    .experience.complete .message { opacity: 1; translate: -50% 0; }
+    .experience.complete .message { opacity: 1; translate: -50% 0; pointer-events: auto; }
 
     @keyframes breathe { 0%,100% { transform: rotate(-1.4deg) scale(1); } 50% { transform: rotate(1.6deg) scale(1.035); } }
     @keyframes labelPulse { 0%,100% { opacity: .56; } 50% { opacity: .95; } }
@@ -424,6 +424,7 @@
 
       .experience.complete .message {
         translate: 0 -50%;
+        pointer-events: auto;
       }
     }
 
@@ -460,6 +461,7 @@
 
       .experience.complete .message {
         translate: 0 0;
+        pointer-events: auto;
       }
     }
 
@@ -610,7 +612,7 @@
       <button class="replay" id="replay" type="button">Volver a verlo</button>
     </section>
 
-    <audio id="backgroundMusic" src="assets/flores-amarillas-instrumental.mp3" preload="auto" loop></audio>
+    <audio id="backgroundMusic" preload="auto" loop playsinline><source src="./assets/flores-amarillas-instrumental.mp3?v=20260921-2" type="audio/mpeg"></audio>
     <button class="sound-toggle" id="soundToggle" type="button" aria-label="Silenciar música" title="Silenciar música">♪</button>
   </main>
 
@@ -699,32 +701,40 @@ Te amo ❤️`;
     }
 
 
-    async function startMusic() {
-      backgroundMusic.volume = .28;
+    function setSoundState(isPlaying) {
+      musicOn = isPlaying;
+      soundToggle.classList.toggle('muted', !isPlaying);
+      const label = isPlaying ? 'Silenciar música' : 'Activar música';
+      soundToggle.setAttribute('aria-label', label);
+      soundToggle.title = label;
+      soundToggle.textContent = isPlaying ? '♪' : '♫';
+    }
+
+    async function startMusic({ restart = false } = {}) {
       try {
-        await backgroundMusic.play();
-        musicOn = true;
-        soundToggle.classList.remove('muted');
-        soundToggle.setAttribute('aria-label', 'Silenciar música');
-        soundToggle.title = 'Silenciar música';
+        backgroundMusic.muted = false;
+        backgroundMusic.volume = .62;
+        if (restart || backgroundMusic.ended) backgroundMusic.currentTime = 0;
+
+        // play() se ejecuta directamente desde el gesto del usuario.
+        const playPromise = backgroundMusic.play();
+        if (playPromise) await playPromise;
+
+        setSoundState(!backgroundMusic.paused);
       } catch (error) {
-        musicOn = false;
-        soundToggle.classList.add('muted');
-        soundToggle.setAttribute('aria-label', 'Activar música');
-        soundToggle.title = 'Activar música';
+        console.warn('No se pudo reproducir la música:', error);
+        setSoundState(false);
       }
     }
 
-    function toggleMusic() {
+    function toggleMusic(event) {
+      event?.stopPropagation();
       if (backgroundMusic.paused) {
-        startMusic();
-        return;
+        startMusic({ restart: true });
+      } else {
+        backgroundMusic.pause();
+        setSoundState(false);
       }
-      backgroundMusic.pause();
-      musicOn = false;
-      soundToggle.classList.add('muted');
-      soundToggle.setAttribute('aria-label', 'Activar música');
-      soundToggle.title = 'Activar música';
     }
 
     function burstFromHeart() {
@@ -767,14 +777,53 @@ Te amo ❤️`;
       }, 7350);
     }
 
+    backgroundMusic.volume = .62;
+    backgroundMusic.muted = false;
+    backgroundMusic.load();
+    setSoundState(false);
+
+    backgroundMusic.addEventListener('play', () => setSoundState(true));
+    backgroundMusic.addEventListener('pause', () => {
+      if (!backgroundMusic.ended) setSoundState(false);
+    });
+    backgroundMusic.addEventListener('error', () => {
+      console.warn('Error cargando el archivo de audio.', backgroundMusic.error);
+      setSoundState(false);
+    });
+
     buildHeart();
-    trigger.addEventListener('click', begin, { once: true });
+    trigger.addEventListener('click', begin);
     soundToggle.addEventListener('click', toggleMusic);
     heartField.addEventListener('click', burstFromHeart);
     heartField.addEventListener('keydown', event => {
       if (event.key === 'Enter' || event.key === ' ') burstFromHeart();
     });
-    replay.addEventListener('click', () => window.location.reload());
+    function resetExperience() {
+      if (petalTimer) {
+        window.clearInterval(petalTimer);
+        petalTimer = null;
+      }
+
+      document.querySelectorAll('.falling').forEach(petal => petal.remove());
+      experience.classList.remove('started', 'planted', 'growing', 'blooming', 'complete');
+      heartField.classList.remove('celebrate');
+      secretLine.classList.remove('visible');
+      typedNote.textContent = '';
+
+      backgroundMusic.pause();
+      backgroundMusic.currentTime = 0;
+      backgroundMusic.muted = false;
+      setSoundState(false);
+
+      started = false;
+      trigger.disabled = false;
+      window.setTimeout(() => trigger.focus({ preventScroll: true }), 50);
+    }
+
+    replay.addEventListener('click', event => {
+      event.stopPropagation();
+      resetExperience();
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && petalTimer) window.clearInterval(petalTimer);
       if (!document.hidden && experience.classList.contains('complete')) petalTimer = window.setInterval(releasePetal, 1250);
