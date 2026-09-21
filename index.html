@@ -65,7 +65,7 @@
       translate: -50% -50%;
       background: rgba(238, 174, 57, .08);
       filter: blur(55px);
-      transition: opacity 1.2s ease, scale 1.8s var(--ease);
+      transition: opacity 1.2s ease, scale 1.8s var(--ease), left 1.8s var(--ease), top 1.8s var(--ease);
     }
 
     .intro-copy {
@@ -350,7 +350,7 @@
     .experience.growing .leaf { animation: growLeaf .7s var(--ease) forwards; animation-delay: var(--delay); }
     .experience.blooming .glow { opacity: 1; scale: 1.35; }
     .experience.blooming .plant,
-    .experience.blooming .earth { opacity: 0; transition: opacity 1.2s ease; }
+    .experience.blooming .earth { opacity: 1; transition: opacity 1.2s ease; }
     .experience.blooming .mini-flower { animation: bloom .72s var(--ease) forwards; animation-delay: var(--delay); }
     .experience.complete .heart-field { animation: heartBreath 4.8s ease-in-out infinite; }
     .experience.complete .message { opacity: 1; translate: -50% 0; }
@@ -401,6 +401,12 @@
         left: 71%;
       }
 
+      .experience.blooming .glow,
+      .experience.complete .glow {
+        left: 71%;
+        top: 47%;
+      }
+
       .message {
         left: clamp(38px, 7vw, 110px);
         bottom: auto;
@@ -425,6 +431,12 @@
       .heart-field {
         top: 33%;
         width: min(88vw, 410px);
+      }
+
+      .experience.blooming .glow,
+      .experience.complete .glow {
+        left: 50%;
+        top: 33%;
       }
 
       .message {
